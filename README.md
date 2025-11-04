@@ -101,7 +101,7 @@ Streamlit Web Interface
 
 # Prediction Example
 
-Add your own screenshots in a screenshots/ folder for better presentation.
+I will add screenshots in  form of screenshots or folder for better presentation.
 
 # Contributing
 Contributions are welcome! You can:
@@ -110,3 +110,6 @@ Contributions are welcome! You can:
 3. Enhance the Streamlit interface for real-time predictions
 
 Please fork the repo and submit a pull request.
+
+Author 
+Gloria Muema
