@@ -1,0 +1,18 @@
+# Core libraries
+pandas
+numpy
+scikit-learn
+nltk
+
+# Web interface
+streamlit
+
+# Optional: for text processing
+re
+
+# Visualization (optional)
+matplotlib
+seaborn
+
+# TF-IDF vectorizer
+scikit-learn
