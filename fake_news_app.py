@@ -1,6 +1,5 @@
 # =========================================================
 # 📰 Fake News Detection System with Custom UI
-# Built by: Gloria Muema
 # =========================================================
 
 import streamlit as st
@@ -20,12 +19,12 @@ from sklearn.metrics import accuracy_score
 # =========================================================
 # SETUP
 # =========================================================
-
 nltk.download('punkt')
 nltk.download('stopwords')
+nltk.download('punkt_tab', quiet=True)
+
 ps = PorterStemmer()
 
-# Text Preprocessing
 def preprocess(text):
     text = str(text).lower()
     tokens = nltk.word_tokenize(text)
@@ -41,7 +40,6 @@ def preprocess(text):
 # =========================================================
 # MODEL TRAINING / LOADING
 # =========================================================
-
 @st.cache_resource
 def train_or_load_model():
     if os.path.exists("fake_news_model.pkl") and os.path.exists("vectorizer.pkl"):
@@ -51,7 +49,17 @@ def train_or_load_model():
 
     st.info("🧠 Training model... This may take a few minutes.")
 
-    df = pd.read_csv("train.csv")
+    fake = pd.read_csv("Fake.csv")
+    true = pd.read_csv("True.csv")
+
+    # Label and balance
+    fake["label"] = 0
+    true["label"] = 1
+    min_len = min(len(fake), len(true))
+    fake = fake.sample(min_len, random_state=42)
+    true = true.sample(min_len, random_state=42)
+
+    df = pd.concat([fake, true]).sample(frac=1, random_state=42).reset_index(drop=True)
     df["content"] = df["title"].astype(str) + " " + df["text"].astype(str)
     df = df[["content", "label"]].dropna()
 
@@ -65,7 +73,8 @@ def train_or_load_model():
     X_train_tfidf = tfidf.fit_transform(X_train)
     X_test_tfidf = tfidf.transform(X_test)
 
-    model = LogisticRegression(max_iter=200)
+    # Use balanced class weight
+    model = LogisticRegression(max_iter=300, class_weight="balanced")
     model.fit(X_train_tfidf, y_train)
 
     pred = model.predict(X_test_tfidf)
@@ -77,86 +86,53 @@ def train_or_load_model():
 
     return model, tfidf
 
+
 model, vectorizer = train_or_load_model()
 
 # =========================================================
-# STREAMLIT CUSTOM PAGE CONFIG
+# STREAMLIT CONFIG
 # =========================================================
-
 st.set_page_config(page_title="Fake News Detection", page_icon="🧠", layout="wide")
 
-# Custom CSS for styling
+# =========================================================
+# CUSTOM CSS
+# =========================================================
 st.markdown("""
     <style>
-    body {
-        background-color: #f8fafc;
-        font-family: 'Inter', sans-serif;
-    }
-    h1, h2, h3 {
-        color: #065f46;
-        text-align: center;
-        font-weight: 700;
-    }
-    .stTextArea textarea {
-        border-radius: 10px;
-        border: 1px solid #d1d5db;
-        font-size: 1rem;
-        padding: 1rem;
-    }
-    .stButton>button {
-        background-color: #065f46;
-        color: white;
-        border-radius: 10px;
-        padding: 0.6rem 1.2rem;
-        border: none;
-        font-weight: 600;
-        transition: 0.3s;
-    }
-    .stButton>button:hover {
-        background-color: #047857;
-        transform: scale(1.02);
-    }
-    .css-1d391kg {
-        background-color: #ffffff !important;
-        border-radius: 12px;
-        padding: 1.5rem;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-    }
+    body { background-color: #f8fafc; font-family: 'Inter', sans-serif; }
+    h1, h2, h3 { color: #065f46; text-align: center; font-weight: 700; }
+    .stTextArea textarea { border-radius: 10px; border: 1px solid #d1d5db; font-size: 1rem; padding: 1rem; }
+    .stButton>button { background-color: #065f46; color: white; border-radius: 10px; padding: 0.6rem 1.2rem; border: none; font-weight: 600; transition: 0.3s; }
+    .stButton>button:hover { background-color: #047857; transform: scale(1.02); }
+    .css-1d391kg { background-color: #ffffff !important; border-radius: 12px; padding: 1.5rem; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
     </style>
 """, unsafe_allow_html=True)
 
 # =========================================================
 # HEADER
 # =========================================================
-
 st.markdown("<h1>📰 Fake News Detection System</h1>", unsafe_allow_html=True)
-st.write("A machine learning-powered app that classifies news articles as **Real** or **Fake** using Natural Language Processing (NLP).")
+st.write("A machine learning-powered app that classifies news articles as **Real** or **Fake** using NLP.")
 
 st.divider()
 
 # =========================================================
-# ABOUT SECTION
+# ABOUT
 # =========================================================
 with st.expander("ℹ️ About this App"):
     st.write("""
-    This application uses **Logistic Regression** and **TF-IDF vectorization** to detect fake news based on text content.
-    You can:
-    - Enter text to classify a single article.
-    - Upload a CSV file for batch predictions.
-    The model is trained using the **Kaggle Fake News Dataset**.
+    This application uses **Logistic Regression** with **balanced training** and **TF-IDF vectorization**.
+    Dataset: Kaggle Fake and Real News Dataset.
     """)
 
 # =========================================================
-# TABS
+# SINGLE PREDICTION
 # =========================================================
 tab1, tab2 = st.tabs(["🔍 Single Prediction", "📂 Batch Prediction"])
 
-# =========================================================
-# TAB 1 — Single Prediction
-# =========================================================
 with tab1:
     st.subheader("Single News Classification")
-    news_input = st.text_area("✍️ Enter a news headline or paragraph:", height=200)
+    news_input = st.text_area("✍️ Enter news text:", height=200)
 
     if st.button("Analyze"):
         if not news_input.strip():
@@ -174,18 +150,17 @@ with tab1:
                 st.error(f"🚫 The news is **FAKE** ({probability:.2f}% confidence).")
 
 # =========================================================
-# TAB 2 — Batch Prediction
+# BATCH PREDICTION
 # =========================================================
 with tab2:
     st.subheader("Batch Classification")
-    st.info("Upload a CSV file with news articles to classify them in bulk. File should have a 'title' or 'text' column.")
+    st.info("Upload a CSV file with a 'title' or 'text' column.")
     uploaded_file = st.file_uploader("📤 Upload CSV file", type=["csv"])
 
     if uploaded_file is not None:
         df = pd.read_csv(uploaded_file)
-
         if "text" not in df.columns and "title" not in df.columns:
-            st.error("❌ File must contain either a 'text' or 'title' column.")
+            st.error("❌ File must contain a 'text' or 'title' column.")
         else:
             df["content"] = df.get("title", "") + " " + df.get("text", "")
             df["transformed"] = df["content"].apply(preprocess)
